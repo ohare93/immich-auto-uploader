@@ -1,0 +1,31 @@
+{
+  "packages": [
+    "python@3.11",
+    "python311Packages.pip"
+  ],
+  "env": {
+    "VENV_DIR": ".venv"
+  },
+  "shell": {
+    "init_hook": [
+      "echo 'Setting up Python virtual environment...'",
+      "python -m venv $VENV_DIR",
+      "source $VENV_DIR/bin/activate",
+      "pip install -r src/requirements.txt",
+      "echo 'Immich Auto-Uploader Development Environment Ready'"
+    ],
+    "scripts": {
+      "dev": [
+        "source $VENV_DIR/bin/activate && python src/main.py"
+      ],
+      "install": [
+        "source $VENV_DIR/bin/activate && pip install -r src/requirements.txt"
+      ],
+      "clean": [
+        "find . -type d -name '__pycache__' -exec rm -rf {} + || true",
+        "find . -name '*.pyc' -delete || true",
+        "rm -rf .venv"
+      ]
+    }
+  }
+}

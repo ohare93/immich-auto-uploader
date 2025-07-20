@@ -1,0 +1,70 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "last_modified": "2025-07-19T04:40:28Z",
+      "resolved": "github:NixOS/nixpkgs/6b4955211758ba47fac850c040a27f23b9b4008f?lastModified=1752900028&narHash=sha256-dPALCtmik9Wr14MGqVXm%2BOQcv7vhPBXcWNIOThGnB%2FQ%3D"
+    },
+    "python311Packages.pip": {
+      "resolved": "github:NixOS/nixpkgs/6b4955211758ba47fac850c040a27f23b9b4008f?narHash=sha256-dPALCtmik9Wr14MGqVXm%2BOQcv7vhPBXcWNIOThGnB%2FQ%3D#python311Packages.pip",
+      "source": "nixpkg"
+    },
+    "python@3.11": {
+      "last_modified": "2025-07-13T22:45:35Z",
+      "plugin_version": "0.0.4",
+      "resolved": "github:NixOS/nixpkgs/a421ac6595024edcfbb1ef950a3712b89161c359#python311",
+      "source": "devbox-search",
+      "version": "3.11.13",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/ycjsccacicqdghkaafhp2m120crj1kpf-python3-3.11.13",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/ycjsccacicqdghkaafhp2m120crj1kpf-python3-3.11.13"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8wv78828icd6q6wj3bgsg0kvghjgnsjz-python3-3.11.13",
+              "default": true
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/y9rf7n4n7s2rkzysk0whw1chp6s3jx64-python3-3.11.13-debug"
+            }
+          ],
+          "store_path": "/nix/store/8wv78828icd6q6wj3bgsg0kvghjgnsjz-python3-3.11.13"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/fp45304m5h723ypsbsbx7a1x5mka8ini-python3-3.11.13",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/fp45304m5h723ypsbsbx7a1x5mka8ini-python3-3.11.13"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/blmbwskhrdv9y3vibxbwhw7602aikfww-python3-3.11.13",
+              "default": true
+            },
+            {
+              "name": "debug",
+              "path": "/nix/store/jpnzi866ylj7lxcxjngbmy2m2f670yqi-python3-3.11.13-debug"
+            }
+          ],
+          "store_path": "/nix/store/blmbwskhrdv9y3vibxbwhw7602aikfww-python3-3.11.13"
+        }
+      }
+    }
+  }
+}
