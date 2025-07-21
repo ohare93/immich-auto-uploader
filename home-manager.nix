@@ -36,12 +36,16 @@ in {
 
     environmentFile = mkOption {
       type = types.nullOr types.path;
-      default = "${config.home.homeDirectory}/.config/immich-auto-uploader/.env";
+      default = null;
       example = "${config.home.homeDirectory}/.config/immich-auto-uploader/.env";
       description = ''
         Path to environment file containing sensitive variables like IMMICH_API_KEY.
+        Set to null to disable environment file loading.
         This file should contain:
         IMMICH_API_KEY=your_api_key_here
+        
+        Note: The file must exist when the service starts, or the service will fail.
+        Use the settings option for non-sensitive configuration instead.
       '';
     };
 
@@ -63,21 +67,66 @@ in {
     # Create config directory
     home.file.".config/immich-auto-uploader/.keep".text = "";
 
-    # Create example environment file if it doesn't exist
+    # Create example environment file
     home.file.".config/immich-auto-uploader/.env.example" = {
       text = ''
+        # Immich Auto-Uploader Environment Configuration
         # Copy this file to .env and fill in your values
+        
+        # REQUIRED: Immich server connection
         IMMICH_API_URL=https://your-immich-instance.com
         IMMICH_API_KEY=your_api_key_here
         
-        # Optional settings (these have defaults)
+        # OPTIONAL: Directory settings (these have defaults)
         # WATCH_DIRECTORIES=${config.home.homeDirectory}/Downloads
         # ARCHIVE_DIRECTORY=${config.home.homeDirectory}/Pictures/Archived  
+        
+        # OPTIONAL: Behavior settings
+        # WATCH_RECURSIVE=true
         # LOG_LEVEL=INFO
         # FILE_STABILITY_WAIT_SECONDS=5
         # FILE_STABILITY_CHECK_INTERVAL=1.0
         # MAX_FILE_SIZE_MB=1000
         # SUPPORTED_EXTENSIONS=jpg,jpeg,png,gif,bmp,tiff,webp,mp4,mov,avi,mkv,wmv,flv,m4v,3gp
+        
+        # NOTE: You can also configure these settings using the Home Manager
+        # 'settings' option instead of this file. Use this file only for
+        # sensitive values like IMMICH_API_KEY.
+      '';
+    };
+
+    # Create setup instructions
+    home.file.".config/immich-auto-uploader/README.txt" = {
+      text = ''
+        Immich Auto-Uploader Setup Instructions
+        ======================================
+        
+        1. Copy .env.example to .env:
+           cp ~/.config/immich-auto-uploader/.env.example ~/.config/immich-auto-uploader/.env
+        
+        2. Edit .env file with your Immich server details:
+           - Set IMMICH_API_URL to your Immich server URL
+           - Set IMMICH_API_KEY to your API key (get from Immich web interface)
+        
+        3. Update your Home Manager configuration to set environmentFile:
+           services.immich-auto-uploader = {
+             enable = true;
+             environmentFile = "~/.config/immich-auto-uploader/.env";
+             settings = {
+               # Configure non-sensitive settings here
+             };
+           };
+        
+        4. Rebuild Home Manager:
+           home-manager switch
+        
+        5. Check service status:
+           systemctl --user status immich-auto-uploader
+        
+        Troubleshooting:
+        - Check logs: journalctl --user -u immich-auto-uploader -f
+        - Ensure .env file exists and has correct permissions
+        - Verify Immich server is accessible and API key is valid
       '';
     };
 
@@ -96,16 +145,23 @@ in {
         Restart = "always";
         RestartSec = "10s";
         
+        # Restart on failure, but not too aggressively
+        StartLimitBurst = 5;
+        StartLimitIntervalSec = 300;
+        
         # Environment variables from settings
         Environment = mapAttrsToList (name: value: "${name}=${value}") cfg.settings;
         
         # Load sensitive environment variables from file
-        EnvironmentFile = mkIf (cfg.environmentFile != null && pathExists cfg.environmentFile) cfg.environmentFile;
+        EnvironmentFile = mkIf (cfg.environmentFile != null) cfg.environmentFile;
         
-        # Logging
+        # Logging configuration
         StandardOutput = "journal";
         StandardError = "journal";
         SyslogIdentifier = "immich-auto-uploader";
+        
+        # Working directory
+        WorkingDirectory = "${config.home.homeDirectory}";
       };
 
       Install = {

@@ -140,6 +140,7 @@ Add to your `home.nix`:
   services.immich-auto-uploader = {
     enable = true;
     
+    # Configure non-sensitive settings
     settings = {
       IMMICH_API_URL = "https://your-immich-instance.com";
       WATCH_DIRECTORIES = "${config.home.homeDirectory}/Downloads,${config.home.homeDirectory}/Pictures/Import";
@@ -147,8 +148,10 @@ Add to your `home.nix`:
       LOG_LEVEL = "INFO";
       FILE_STABILITY_WAIT_SECONDS = "5";
       MAX_FILE_SIZE_MB = "1000";
+      WATCH_RECURSIVE = "true";
     };
     
+    # Point to environment file for sensitive values
     environmentFile = "${config.home.homeDirectory}/.config/immich-auto-uploader/.env";
   };
 }
@@ -157,9 +160,12 @@ Add to your `home.nix`:
 ### Step 2: Create Environment File
 
 ```bash
-mkdir -p ~/.config/immich-auto-uploader
+# Home Manager will create the config directory and example files
+home-manager switch
+
+# Copy and edit the environment file
 cp ~/.config/immich-auto-uploader/.env.example ~/.config/immich-auto-uploader/.env
-# Edit the .env file with your actual API key
+nano ~/.config/immich-auto-uploader/.env  # Edit with your API key
 ```
 
 ### Step 3: Apply Home Manager Configuration
@@ -168,6 +174,31 @@ cp ~/.config/immich-auto-uploader/.env.example ~/.config/immich-auto-uploader/.e
 home-manager switch
 systemctl --user status immich-auto-uploader
 ```
+
+### Home Manager Troubleshooting
+
+**Environment File Issues:**
+- Ensure the `.env` file exists at the specified path
+- Check file permissions: `chmod 600 ~/.config/immich-auto-uploader/.env`
+- Verify the file contains valid key=value pairs with no spaces around `=`
+- Use absolute paths in `environmentFile` option
+
+**Service Won't Start:**
+```bash
+# Check service status
+systemctl --user status immich-auto-uploader
+
+# View detailed logs
+journalctl --user -u immich-auto-uploader -f
+
+# Restart the service
+systemctl --user restart immich-auto-uploader
+```
+
+**Configuration Options:**
+- Use `settings` for non-sensitive configuration (visible in Nix store)
+- Use `environmentFile` only for sensitive values like API keys
+- Set `environmentFile = null` to disable environment file loading
 
 ## Method 4: Nix Package Installation
 
