@@ -181,13 +181,29 @@ class FileWatcher:
         logger.info("Starting file watcher...")
         
         # Schedule watching for each directory
+        directories_scheduled = 0
         for directory in self.config.watch_directories:
             expanded_dir = os.path.expanduser(directory)
-            if os.path.exists(expanded_dir):
+            
+            # Directory existence and permissions should have been validated in config
+            # but double-check here for runtime safety
+            if not os.path.exists(expanded_dir):
+                logger.error(f"Watch directory no longer exists: {expanded_dir}")
+                continue
+            
+            if not os.access(expanded_dir, os.R_OK):
+                logger.error(f"Watch directory is not readable: {expanded_dir}")
+                continue
+            
+            try:
                 self.observer.schedule(self.handler, expanded_dir, recursive=self.config.watch_recursive)
-                logger.info(f"Watching directory: {expanded_dir}")
-            else:
-                logger.warning(f"Watch directory does not exist: {expanded_dir}")
+                logger.info(f"Watching directory: {expanded_dir} (recursive: {self.config.watch_recursive})")
+                directories_scheduled += 1
+            except Exception as e:
+                logger.error(f"Failed to schedule watching for {expanded_dir}: {e}")
+        
+        if directories_scheduled == 0:
+            raise RuntimeError("No directories could be scheduled for watching. Check directory paths and permissions.")
         
         self.observer.start()
         self.is_running = True

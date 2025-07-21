@@ -218,14 +218,35 @@ class FileProcessor:
             return False
     
     def _ensure_archive_directory(self):
-        """Ensure the archive directory exists"""
+        """Ensure the archive directory exists, creating only the final directory if needed"""
         archive_dir = Path(self.config.archive_directory)
         
         try:
-            archive_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Archive directory ready: {archive_dir}")
+            if archive_dir.exists():
+                if not archive_dir.is_dir():
+                    raise RuntimeError(f"Archive path exists but is not a directory: {archive_dir}")
+                if not os.access(archive_dir, os.W_OK):
+                    raise RuntimeError(f"Archive directory is not writable: {archive_dir}")
+                logger.info(f"Archive directory ready: {archive_dir}")
+                return
+            
+            # Check if parent directory exists
+            parent_dir = archive_dir.parent
+            if not parent_dir.exists():
+                raise RuntimeError(
+                    f"Cannot create archive directory - parent directory does not exist: {parent_dir}. "
+                    f"Please create the parent directory manually first."
+                )
+            
+            if not os.access(parent_dir, os.W_OK):
+                raise RuntimeError(f"Cannot create archive directory - parent directory is not writable: {parent_dir}")
+            
+            # Create only the final directory (not parents)
+            archive_dir.mkdir(exist_ok=True)
+            logger.info(f"Created archive directory: {archive_dir}")
+            
         except Exception as e:
-            raise RuntimeError(f"Cannot create archive directory {archive_dir}: {e}")
+            raise RuntimeError(f"Cannot setup archive directory {archive_dir}: {e}")
     
     def _get_file_key(self, file_info: FileInfo) -> str:
         """Generate a unique key for a file to track processing"""

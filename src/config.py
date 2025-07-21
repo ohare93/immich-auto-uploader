@@ -85,11 +85,15 @@ class Config:
         if self.file_stability_check_interval < 0.1:
             raise ValueError("FILE_STABILITY_CHECK_INTERVAL must be at least 0.1")
 
-        # Ensure watch directories exist
+        # Validate watch directories exist and are accessible
         for directory in self.watch_directories:
             expanded_dir = os.path.expanduser(directory)
             if not os.path.exists(expanded_dir):
-                logging.warning(f"Watch directory does not exist: {expanded_dir}")
+                raise ValueError(f"Watch directory does not exist: {expanded_dir}")
+            if not os.path.isdir(expanded_dir):
+                raise ValueError(f"Watch path is not a directory: {expanded_dir}")
+            if not os.access(expanded_dir, os.R_OK):
+                raise ValueError(f"Watch directory is not readable: {expanded_dir}")
         
         # Normalize and resolve archive directory path
         self.archive_directory_resolved = Path(os.path.expanduser(self.archive_directory)).resolve()
