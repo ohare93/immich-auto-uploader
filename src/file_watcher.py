@@ -131,8 +131,8 @@ class ImmichFileHandler(FileSystemEventHandler):
                 
                 # Check if file still exists
                 if not path.exists():
-                    logger.debug(f"File disappeared during stability check: {file_path}")
-                    return False
+                    logger.debug(f"File disappeared during stability check (likely processed): {file_path}")
+                    return True
                 
                 # Get current file size
                 try:
