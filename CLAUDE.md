@@ -18,6 +18,8 @@ This is an Immich Auto-Uploader written in Python. The application monitors dire
 devbox shell              # Enter development environment (auto-installs dependencies)
 devbox run dev            # Run the application
 devbox run install        # Install/update Python dependencies
+devbox run test           # Run unit tests
+devbox run test-coverage  # Run tests with coverage report
 devbox run clean          # Clean build artifacts and virtual environment
 ```
 
@@ -34,9 +36,11 @@ devbox run clean          # Clean build artifacts and virtual environment
 - Object-oriented design with clear separation of concerns
 - Thread-safe file processing with queue-based architecture
 - Environment-driven configuration (no hardcoded values)
-- Real-time file monitoring (no polling required)
+- Real-time file monitoring with intelligent file stability detection
 - Comprehensive error handling and logging
 - Graceful shutdown with signal handling
+- Archive directory filtering to prevent processing loops
+- Configurable recursive/non-recursive directory monitoring
 
 ## Configuration
 
@@ -44,8 +48,11 @@ Environment variables (loaded from shell environment or `.env` file):
 - `IMMICH_API_URL` and `IMMICH_API_KEY` (required) - Immich server URL and API key
 - `WATCH_DIRECTORIES` (optional) - Comma-separated paths to monitor (default: ~/Downloads)
 - `ARCHIVE_DIRECTORY` (optional) - Directory for processed files (default: ~/Pictures/Archived)
+- `WATCH_RECURSIVE` (optional) - Watch subdirectories recursively: true/false (default: true)
 - `SUPPORTED_EXTENSIONS` (optional) - Comma-separated file extensions to process
 - `MAX_FILE_SIZE_MB` (optional) - Maximum file size in MB (default: 1000)
+- `FILE_STABILITY_WAIT_SECONDS` (optional) - Seconds to wait for file size to stabilize (default: 5)
+- `FILE_STABILITY_CHECK_INTERVAL` (optional) - Seconds between file size checks (default: 1.0)
 - `LOG_LEVEL` (optional) - Logging level: DEBUG, INFO, WARNING, ERROR (default: INFO)
 
 ## API Integration
@@ -66,14 +73,27 @@ Environment variables (loaded from shell environment or `.env` file):
 - Proper signal handling for graceful shutdown
 
 **Testing:**
-- Manual testing via `devbox run dev` with sample files
+- Comprehensive unit test suite with 72 tests covering all modules
+- 73% overall code coverage with 90%+ coverage on core modules
+- Tests for configuration validation, file watching, processing, and API client
+- Run tests with `devbox run test` or `pytest`
+- Coverage reports with `devbox run test-coverage`
+- Mock-based testing to avoid external dependencies
 - Application validates configuration and tests Immich connectivity on startup
 - Comprehensive logging for debugging and monitoring
+
+**Test Categories:**
+- Configuration validation (environment variables, directory checks, permissions)
+- File watching logic (stability detection, recursive scanning, duplicate prevention)
+- File processing (upload pipeline, archiving, stats, error handling)  
+- API client (connection testing, uploads, retries, MIME types, error handling)
 
 **Common Operations:**
 - Add new file types: Update `SUPPORTED_EXTENSIONS` config and `_get_content_type()` in `immich_client.py`
 - Modify upload logic: Edit `upload_asset()` function in `immich_client.py`
 - Change monitoring behavior: Update `FileWatcher` class in `file_watcher.py`
+- Adjust file stability detection: Modify `FILE_STABILITY_WAIT_SECONDS` and `FILE_STABILITY_CHECK_INTERVAL`
+- Toggle recursive watching: Set `WATCH_RECURSIVE=true/false`
 - Adjust logging: Modify log levels in `config.py` or set `LOG_LEVEL` environment variable
 - Process statistics: Use `get_stats()` method on `FileProcessor` instance
 

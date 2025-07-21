@@ -465,4 +465,74 @@ The service maintains minimal state:
 3. Restore archive directory if needed
 4. Rebuild and restart services
 
+## Development and Testing
+
+### Running Tests
+
+The project includes comprehensive unit tests covering all major functionality:
+
+```bash
+# Install test dependencies
+pip install -r test-requirements.txt
+
+# Run all tests
+pytest
+
+# Run tests with coverage
+pytest --cov=src --cov-report=html --cov-report=term
+
+# Run specific test categories
+pytest tests/test_config.py -v                    # Config validation tests
+pytest tests/test_file_watcher.py -v              # File watching tests  
+pytest tests/test_file_processor.py -v            # File processing tests
+pytest tests/test_immich_client.py -v             # API client tests
+
+# Run tests matching a pattern
+pytest -k "test_stability" -v                     # File stability tests
+pytest -k "test_directory" -v                     # Directory handling tests
+```
+
+### Test Coverage
+
+Tests cover:
+- **Configuration validation** - Environment variables, directory checks, permissions
+- **File watching** - Recursive/non-recursive, file stability detection, archive filtering
+- **File processing** - Upload logic, archiving, duplicate detection, error handling
+- **API client** - Connection testing, upload functionality, retry logic, MIME type detection
+- **Directory handling** - Missing directories, permission issues, archive creation
+- **Edge cases** - Large files, network failures, file conflicts, permission errors
+
+### Development Workflow
+
+```bash
+# Set up development environment
+python -m venv .venv
+source .venv/bin/activate
+pip install -r src/requirements.txt
+pip install -r test-requirements.txt
+
+# Run tests during development
+make test-watch              # Auto-reload tests on changes
+make test-coverage          # Generate coverage report
+make lint                   # Check syntax
+make clean                  # Clean test artifacts
+
+# Before committing
+make test-coverage          # Ensure good test coverage
+make lint                   # Ensure no syntax errors
+```
+
+### Using with Nix/NixOS Development
+
+```bash
+# Enter development shell (includes Python + dependencies)
+nix develop
+
+# Run tests in Nix environment
+nix develop -c pytest
+
+# Check flake
+nix flake check
+```
+
 This completes the comprehensive deployment guide for NixOS. Choose the method that best fits your use case and security requirements.

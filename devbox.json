@@ -12,6 +12,7 @@
       "python -m venv $VENV_DIR",
       "source $VENV_DIR/bin/activate",
       "pip install -r src/requirements.txt",
+      "pip install -r test-requirements.txt",
       "echo 'Immich Auto-Uploader Development Environment Ready'"
     ],
     "scripts": {
@@ -19,12 +20,21 @@
         "source $VENV_DIR/bin/activate && python src/main.py"
       ],
       "install": [
-        "source $VENV_DIR/bin/activate && pip install -r src/requirements.txt"
+        "source $VENV_DIR/bin/activate && pip install -r src/requirements.txt && pip install -r test-requirements.txt"
+      ],
+      "test": [
+        "source $VENV_DIR/bin/activate && pytest"
+      ],
+      "test-coverage": [
+        "source $VENV_DIR/bin/activate && pytest --cov=src --cov-report=html --cov-report=term"
       ],
       "clean": [
         "find . -type d -name '__pycache__' -exec rm -rf {} + || true",
         "find . -name '*.pyc' -delete || true",
-        "rm -rf .venv"
+        "rm -rf .venv",
+        "rm -rf htmlcov/",
+        "rm -rf .coverage",
+        "rm -rf .pytest_cache/"
       ]
     }
   }

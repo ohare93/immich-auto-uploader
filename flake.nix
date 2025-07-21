@@ -25,6 +25,9 @@
             python311Packages.requests
             python311Packages.watchdog
             python311Packages.python-dotenv
+            python311Packages.pytest
+            python311Packages.pytest-cov
+            python311Packages.pytest-mock
           ];
           
           shellHook = ''
@@ -35,6 +38,8 @@
             echo "Available commands:"
             echo "  python src/main.py          - Run the uploader"
             echo "  python -m py_compile src/*  - Check syntax"
+            echo "  pytest                      - Run unit tests"
+            echo "  pytest --cov=src           - Run tests with coverage"
             echo ""
             echo "Environment variables needed:"
             echo "  IMMICH_API_URL=https://your-immich-instance.com"
