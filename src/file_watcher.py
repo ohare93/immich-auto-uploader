@@ -46,6 +46,11 @@ class FileInfo:
             if not config.is_supported_file(self.name):
                 return False
             
+            # Check if file is in archive directory (never process archived files)
+            if config.is_in_archive_directory(str(self.path)):
+                logger.debug(f"File is in archive directory, skipping: {self.path}")
+                return False
+            
             return True
             
         except (OSError, FileNotFoundError):
@@ -179,7 +184,7 @@ class FileWatcher:
         for directory in self.config.watch_directories:
             expanded_dir = os.path.expanduser(directory)
             if os.path.exists(expanded_dir):
-                self.observer.schedule(self.handler, expanded_dir, recursive=True)
+                self.observer.schedule(self.handler, expanded_dir, recursive=self.config.watch_recursive)
                 logger.info(f"Watching directory: {expanded_dir}")
             else:
                 logger.warning(f"Watch directory does not exist: {expanded_dir}")
@@ -212,14 +217,14 @@ class FileWatcher:
                 continue
             
             try:
-                self._scan_directory(Path(expanded_dir))
+                self._scan_directory(Path(expanded_dir), recursive=self.config.watch_recursive)
             except Exception as e:
                 logger.error(f"Error scanning directory {expanded_dir}: {e}")
         
         logger.info("Initial scan completed")
     
-    def _scan_directory(self, directory: Path):
-        """Recursively scan a directory for files"""
+    def _scan_directory(self, directory: Path, recursive: bool = True):
+        """Scan a directory for files, optionally recursively"""
         try:
             for item in directory.iterdir():
                 if item.is_file():
@@ -227,8 +232,8 @@ class FileWatcher:
                     if file_info.is_valid(self.config):
                         logger.info(f"Found existing file: {file_info}")
                         self.on_file_ready(file_info)
-                elif item.is_dir():
-                    self._scan_directory(item)
+                elif item.is_dir() and recursive:
+                    self._scan_directory(item, recursive=True)
         except (PermissionError, OSError) as e:
             logger.warning(f"Cannot access {directory}: {e}")
     

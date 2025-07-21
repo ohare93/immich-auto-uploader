@@ -1,5 +1,6 @@
 import os
 import logging
+from pathlib import Path
 from typing import List, Optional
 from dotenv import load_dotenv
 
@@ -44,6 +45,7 @@ class Config:
         self.max_file_size_mb = int(self._get_env("MAX_FILE_SIZE_MB", "1000"))
         self.file_stability_wait_seconds = int(self._get_env("FILE_STABILITY_WAIT_SECONDS", "5"))
         self.file_stability_check_interval = float(self._get_env("FILE_STABILITY_CHECK_INTERVAL", "1.0"))
+        self.watch_recursive = self._get_env("WATCH_RECURSIVE", "true").lower() in ("true", "1", "yes", "on")
 
         self._validate_config()
         self._setup_logging()
@@ -88,6 +90,9 @@ class Config:
             expanded_dir = os.path.expanduser(directory)
             if not os.path.exists(expanded_dir):
                 logging.warning(f"Watch directory does not exist: {expanded_dir}")
+        
+        # Normalize and resolve archive directory path
+        self.archive_directory_resolved = Path(os.path.expanduser(self.archive_directory)).resolve()
 
     def _setup_logging(self):
         """Setup logging configuration"""
@@ -113,6 +118,16 @@ class Config:
     def get_file_size_limit_bytes(self) -> int:
         """Get the file size limit in bytes"""
         return self.max_file_size_mb * 1024 * 1024
+    
+    def is_in_archive_directory(self, file_path: str) -> bool:
+        """Check if a file path is within the archive directory"""
+        try:
+            file_path_resolved = Path(file_path).resolve()
+            # Check if the file path is within the archive directory tree
+            return self.archive_directory_resolved in file_path_resolved.parents or file_path_resolved == self.archive_directory_resolved
+        except (OSError, ValueError):
+            # If path resolution fails, err on the side of caution and exclude
+            return True
 
     def __str__(self) -> str:
         """String representation of configuration (without sensitive data)"""
@@ -126,5 +141,6 @@ class Config:
   Log level: {self.log_level}
   Max file size: {self.max_file_size_mb} MB
   File stability wait: {self.file_stability_wait_seconds} seconds
-  File stability check interval: {self.file_stability_check_interval} seconds"""
+  File stability check interval: {self.file_stability_check_interval} seconds
+  Watch recursive: {self.watch_recursive}"""
 
