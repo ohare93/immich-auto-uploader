@@ -46,6 +46,11 @@ class Config:
         self.file_stability_wait_seconds = int(self._get_env("FILE_STABILITY_WAIT_SECONDS", "5"))
         self.file_stability_check_interval = float(self._get_env("FILE_STABILITY_CHECK_INTERVAL", "1.0"))
         self.watch_recursive = self._get_env("WATCH_RECURSIVE", "true").lower() in ("true", "1", "yes", "on")
+        
+        # Notification settings
+        self.enable_notifications = self._get_env("ENABLE_NOTIFICATIONS", "true").lower() in ("true", "1", "yes", "on")
+        self.notification_batch_size = int(self._get_env("NOTIFICATION_BATCH_SIZE", "999999"))  # Effectively disable count-based batching
+        self.notification_batch_timeout = int(self._get_env("NOTIFICATION_BATCH_TIMEOUT", "30"))
 
         self._validate_config()
         self._setup_logging()
@@ -84,6 +89,12 @@ class Config:
 
         if self.file_stability_check_interval < 0.1:
             raise ValueError("FILE_STABILITY_CHECK_INTERVAL must be at least 0.1")
+
+        if self.notification_batch_size < 1:
+            raise ValueError("NOTIFICATION_BATCH_SIZE must be at least 1")
+        
+        if self.notification_batch_timeout < 1:
+            raise ValueError("NOTIFICATION_BATCH_TIMEOUT must be at least 1 second")
 
         # Validate watch directories exist and are accessible
         for directory in self.watch_directories:
@@ -146,5 +157,8 @@ class Config:
   Max file size: {self.max_file_size_mb} MB
   File stability wait: {self.file_stability_wait_seconds} seconds
   File stability check interval: {self.file_stability_check_interval} seconds
-  Watch recursive: {self.watch_recursive}"""
+  Watch recursive: {self.watch_recursive}
+  Notifications enabled: {self.enable_notifications}
+  Notification batch size: {self.notification_batch_size}
+  Notification batch timeout: {self.notification_batch_timeout} seconds"""
 

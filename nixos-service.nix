@@ -6,10 +6,11 @@ let
   cfg = config.services.immich-auto-uploader;
   
   # Create Python environment with dependencies
-  pythonEnv = pkgs.python311.withPackages (ps: with ps; [
+  pythonEnv = pkgs.python313.withPackages (ps: with ps; [
     requests
     watchdog
     python-dotenv
+    notify-py
   ]);
   
   # Create the service script
@@ -49,6 +50,9 @@ in {
         WATCH_DIRECTORIES = "/home/user/Downloads,/home/user/Photos";
         ARCHIVE_DIRECTORY = "/home/user/Pictures/Archived";
         LOG_LEVEL = "INFO";
+        # Note: ENABLE_NOTIFICATIONS should be "false" for system services
+        # as they don't have access to user desktop notifications
+        ENABLE_NOTIFICATIONS = "false";
       };
       description = "Environment variables for the service";
     };

@@ -21,19 +21,20 @@
         # Development shell
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            python311
-            python311Packages.requests
-            python311Packages.watchdog
-            python311Packages.python-dotenv
-            python311Packages.pytest
-            python311Packages.pytest-cov
-            python311Packages.pytest-mock
+            python313
+            python313Packages.requests
+            python313Packages.watchdog
+            python313Packages.python-dotenv
+            python313Packages.notify-py
+            python313Packages.pytest
+            python313Packages.pytest-cov
+            python313Packages.pytest-mock
           ];
           
           shellHook = ''
             echo "🚀 Immich Auto-Uploader development environment"
             echo "📁 Source code: $(pwd)/src/"
-            echo "🐍 Python: $(python --version)"
+            echo "🐍 Python: $(python3 --version)"
             echo ""
             echo "Available commands:"
             echo "  python src/main.py          - Run the uploader"
@@ -63,10 +64,10 @@
         checks = {
           # Syntax check
           python-syntax = pkgs.runCommand "check-python-syntax" {
-            buildInputs = [ pkgs.python311 ];
+            buildInputs = [ pkgs.python313 ];
           } ''
             cd ${./.}
-            python -m py_compile src/*.py
+            python3 -m py_compile src/*.py
             touch $out
           '';
           

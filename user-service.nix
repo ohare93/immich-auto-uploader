@@ -6,10 +6,11 @@ let
   cfg = config.services.immich-auto-uploader-user;
   
   # Create Python environment with dependencies
-  pythonEnv = pkgs.python311.withPackages (ps: with ps; [
+  pythonEnv = pkgs.python313.withPackages (ps: with ps; [
     requests
     watchdog
     python-dotenv
+    notify-py
   ]);
   
   # Create the service script

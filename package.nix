@@ -1,15 +1,16 @@
 { lib
 , stdenv
-, python311
-, python311Packages
+, python313
+, python313Packages
 , makeWrapper
 }:
 
 let
-  pythonEnv = python311.withPackages (ps: with ps; [
+  pythonEnv = python313.withPackages (ps: with ps; [
     requests
     watchdog
     python-dotenv
+    notify-py
   ]);
   
 in stdenv.mkDerivation rec {

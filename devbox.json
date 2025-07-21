@@ -1,7 +1,8 @@
 {
   "packages": [
     "python@3.11",
-    "python311Packages.pip"
+    "python311Packages.pip",
+    "python311Packages.notify-py"
   ],
   "env": {
     "VENV_DIR": ".venv"

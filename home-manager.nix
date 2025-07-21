@@ -30,6 +30,8 @@ in {
         FILE_STABILITY_CHECK_INTERVAL = "1.0";
         MAX_FILE_SIZE_MB = "1000";
         SUPPORTED_EXTENSIONS = "jpg,jpeg,png,gif,bmp,tiff,webp,mp4,mov,avi,mkv,wmv,flv,m4v,3gp";
+        ENABLE_NOTIFICATIONS = "true";
+        NOTIFICATION_BATCH_TIMEOUT = "30";
       };
       description = "Environment variables for the service";
     };
@@ -88,6 +90,10 @@ in {
         # FILE_STABILITY_CHECK_INTERVAL=1.0
         # MAX_FILE_SIZE_MB=1000
         # SUPPORTED_EXTENSIONS=jpg,jpeg,png,gif,bmp,tiff,webp,mp4,mov,avi,mkv,wmv,flv,m4v,3gp
+        
+        # OPTIONAL: Notification settings
+        # ENABLE_NOTIFICATIONS=true
+        # NOTIFICATION_BATCH_TIMEOUT=30
         
         # NOTE: You can also configure these settings using the Home Manager
         # 'settings' option instead of this file. Use this file only for

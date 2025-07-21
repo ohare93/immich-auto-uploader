@@ -10,6 +10,7 @@ from queue import Queue, Empty
 from config import Config
 from file_watcher import FileInfo
 from immich_client import ImmichClient, ImmichUploadResult
+from notifier import Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,11 @@ class FileProcessor:
         self.config = config
         self.immich_client = ImmichClient(config)
         self.stats = ProcessingStats()
+        self.notifier = Notifier(
+            enabled=config.enable_notifications,
+            batch_size=config.notification_batch_size,
+            batch_timeout=config.notification_batch_timeout
+        )
         
         # Track processed files to avoid duplicates
         self.processed_files: Set[str] = set()
@@ -105,6 +111,11 @@ class FileProcessor:
             self.worker_thread.join(timeout=5)
         
         self.immich_client.close()
+        
+        # Force send any pending notifications
+        if self.notifier:
+            self.notifier.force_notification()
+        
         logger.info("File processor stopped")
         
         # Log final statistics
@@ -166,12 +177,18 @@ class FileProcessor:
             file_key = self._get_file_key(file_info)
             self.processed_files.add(file_key)
             
+            # Notify that upload is starting (first upload only)
+            self.notifier.notify_upload_start()
+            
             # Upload to Immich
             upload_result = self.immich_client.upload_asset(file_info)
             
             if upload_result.success:
                 logger.info(f"Upload successful: {file_info.name}")
                 self.stats.increment_success()
+                
+                # Notify about successful upload
+                self.notifier.notify_upload_success(file_info.name)
                 
                 # Archive the file
                 if self._archive_file(file_info):
