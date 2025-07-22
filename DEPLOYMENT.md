@@ -4,7 +4,7 @@ This document provides comprehensive instructions for deploying the Immich Auto-
 
 ## Overview
 
-The Immich Auto-Uploader can be deployed on NixOS in several ways:
+The Immich Auto-Uploader Python application can be deployed on NixOS in several ways:
 
 1. **NixOS System Service** - System-wide service with security hardening
 2. **User Service** - User-level service without root privileges  
