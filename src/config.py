@@ -14,12 +14,8 @@ class Config:
     def __init__(self):
         self.immich_api_url = self._get_required_env("IMMICH_API_URL")
         self.immich_api_key = self._get_required_env("IMMICH_API_KEY")
-        self.watch_directories = self._get_list_env(
-            "WATCH_DIRECTORIES", [os.path.expanduser("~/Downloads")]
-        )
-        self.archive_directory = self._get_env(
-            "ARCHIVE_DIRECTORY", os.path.expanduser("~/Pictures/Archived")
-        )
+        self.watch_directories = self._get_required_list_env("WATCH_DIRECTORIES")
+        self.archive_directory = self._get_required_env("ARCHIVE_DIRECTORY")
         self.supported_extensions = self._get_list_env(
             "SUPPORTED_EXTENSIONS",
             [
@@ -72,6 +68,16 @@ class Config:
         if not value:
             return default
         return [item.strip() for item in value.split(",") if item.strip()]
+
+    def _get_required_list_env(self, key: str) -> List[str]:
+        """Get a required comma-separated list from environment variable"""
+        value = os.getenv(key)
+        if not value:
+            raise ValueError(f"Required environment variable {key} is not set")
+        result = [item.strip() for item in value.split(",") if item.strip()]
+        if not result:
+            raise ValueError(f"Environment variable {key} cannot be empty")
+        return result
 
     def _validate_config(self):
         """Validate configuration values"""

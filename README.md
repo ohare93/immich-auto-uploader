@@ -1,148 +1,194 @@
 # Immich Auto-Uploader
 
-A Python application that automatically monitors directories for images and videos, uploads them to a self-hosted Immich instance, and archives the uploaded files.
+**Stop manually uploading photos and videos to your Immich server.** This tool automatically monitors whichever directories you want (Downloads, camera imports, etc.), uploads new media files to Immich as soon as they appear, then safely archives them.
 
-## Features
-
-- **Automatic monitoring**: Watches configured directories for new image and video files
-- **Immich integration**: Uploads assets to your self-hosted Immich server via API
-- **File archiving**: Moves uploaded files to an archive directory after successful upload
-- **Configurable**: Environment-based configuration for flexibility
-- **Type-safe**: Written in Python with comprehensive error handling and logging
-- **Real-time**: Uses watchdog library for immediate file system monitoring
-- **Thread-safe**: Multi-threaded file processing with queue-based architecture
-
-## Prerequisites
-
-- [Devbox](https://www.jetify.com/devbox) installed on your system
-- A running Immich server with API access
-- Immich API key (generated from the user settings panel)
-
-## Setup
-
-1. **Clone or initialize the project**:
-   ```bash
-   git clone <repository-url>
-   cd immich-auto-uploader
-   ```
-
-2. **Enter the development environment**:
-   ```bash
-   devbox shell
-   ```
-
-3. **Configure the application**:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and set your configuration:
-   ```env
-   IMMICH_API_URL=http://your-immich-server:2283/api
-   IMMICH_API_KEY=your_api_key_here
-   WATCH_DIRECTORIES=/home/user/Downloads,/home/user/Pictures/Camera
-   ARCHIVE_DIRECTORY=/home/user/Pictures/Archived
-   ```
-
-## Configuration
-
-The application is configured via environment variables in the `.env` file:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `IMMICH_API_URL` | Your Immich server API endpoint | Required |
-| `IMMICH_API_KEY` | API key from Immich user settings | Required |
-| `WATCH_DIRECTORIES` | Comma-separated list of directories to monitor | `/home/user/Downloads` |
-| `ARCHIVE_DIRECTORY` | Directory to move uploaded files | `/home/user/Pictures/Archived` |
-| `WATCH_RECURSIVE` | Watch subdirectories recursively (true/false) | `true` |
-| `SUPPORTED_EXTENSIONS` | File extensions to process | `jpg,jpeg,png,gif,bmp,tiff,webp,mp4,mov,avi,mkv,wmv,flv,m4v,3gp` |
-| `MAX_FILE_SIZE_MB` | Maximum file size to process | `1000` |
-| `FILE_STABILITY_WAIT_SECONDS` | Seconds to wait for file size to stabilize | `5` |
-| `FILE_STABILITY_CHECK_INTERVAL` | Seconds between file size checks | `1.0` |
-| `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
-
-## Usage
-
-### Development
-
-Run the application in development mode:
-```bash
-devbox run dev
-```
-
-### Testing
-
-Run the test suite:
-```bash
-devbox run test
-```
-
-Run tests with coverage:
-```bash
-devbox run test-coverage
-```
-
-### Production
-
-To run in production, ensure your environment variables are configured and run:
-```bash
-devbox run dev
-```
-
-Or activate the virtual environment and run directly:
-```bash
-devbox shell
-source .venv/bin/activate
-python src/main.py
-```
+Perfect for monitoring download folders for media files.
 
 ## How It Works
 
-1. **Startup**: The application loads configuration from environment variables and tests Immich connectivity
-2. **Real-time Monitoring**: Uses watchdog library to monitor watch directories for file system events
-3. **File Stability**: Waits for files to stabilize (stop changing size) before processing
-4. **Multi-threaded Processing**: For each stable image/video file:
-   - Validates file type, size, and permissions
-   - Uploads to Immich via the `/api/assets` endpoint with retry logic
-   - Moves the file to the archive directory on successful upload
-   - Updates processing statistics
-5. **Logging**: Comprehensive logging with configurable levels and detailed error handling
+1. **Monitor**: Watches your specified directories for new image and video files
+2. **Stabilize**: Waits for files to finish copying/downloading (no more size changes)
+3. **Upload**: Sends files to your Immich server via API
+4. **Archive**: Moves successfully uploaded files to your archive directory
+5. **Repeat**: Continues monitoring in real-time
 
-## Project Structure
+The uploader is smart about file handling - it won't upload partially downloaded files, duplicates, or files that are too large. All activity is logged for troubleshooting.
 
+## Basic Configuration
+
+Create a `.env` file with these properties:
+
+```env
+# Required: Your Immich server details
+IMMICH_API_URL=http://localhost:2283/api
+IMMICH_API_KEY=your_api_key_here
+
+# Directories to monitor (comma-separated)
+WATCH_DIRECTORIES=/home/user/Downloads,/home/user/Pictures/Camera
+
+# Where to move uploaded files
+ARCHIVE_DIRECTORY=/home/user/Pictures/Archived
 ```
-├── src/
-│   ├── main.py             # Application entry point with signal handling
-│   ├── config.py           # Environment variable parsing and configuration
-│   ├── file_watcher.py     # Real-time directory monitoring using watchdog
-│   ├── immich_client.py    # HTTP client for Immich API with retry logic
-│   ├── file_processor.py   # Multi-threaded file processing and archiving
-│   └── requirements.txt    # Python dependencies
-├── tests/                  # Comprehensive test suite (72 tests, 73% coverage)
-├── devbox.json             # Devbox configuration with Python environment
-├── .env.example            # Example environment configuration
-└── README.md               # This file
+
+**Getting your API key**: Log into Immich → User Settings → API Keys → Create new key
+
+## Run / Install
+
+### Method 1: Poetry
+
+**Requirements**: [Poetry](https://python-poetry.org/) installed
+
+```bash
+# Install dependencies with Poetry
+poetry install
+
+# Configure
+cp .env.example .env
+# Edit .env with your settings
+
+# Run
+poetry run python src/main.py
+
+# Or activate the shell and run directly
+poetry shell
+python src/main.py
+```
+
+**To run as a service**, create a systemd unit or use your system's service manager.
+
+### Method 2: Devbox
+
+**Requirements**: [Devbox](https://www.jetify.com/devbox) installed
+
+```bash
+# Enter dev environment (auto-installs Python + dependencies)
+devbox shell
+
+# Run
+devbox run dev
+```
+
+### Method 3: NixOS / Home Manager Service
+
+Add to your NixOS configuration:
+
+```nix
+# For system-wide service
+services.immich-auto-uploader = {
+  enable = true;
+  user = "immich-uploader"; # Optional: custom user
+  environment = {
+    IMMICH_API_URL = "https://immich.example.com";
+    WATCH_DIRECTORIES = "/home/user/Downloads,/home/user/Pictures/Import";
+    ARCHIVE_DIRECTORY = "/home/user/Pictures/Archived";
+    LOG_LEVEL = "INFO";
+  };
+  environmentFile = "/run/secrets/immich-uploader-env";
+};
+
+# For user service (home-manager)
+services.immich-auto-uploader-user = {
+  enable = true;
+  sourceDirectory = "/home/user/immich-auto-uploader";
+  environment = {
+    IMMICH_API_URL = "https://immich.example.com";
+    WATCH_DIRECTORIES = "${config.home.homeDirectory}/Downloads";
+    ARCHIVE_DIRECTORY = "${config.home.homeDirectory}/Pictures/Archived";
+  };
+  environmentFile = "${config.home.homeDirectory}/.config/immich-auto-uploader/.env";
+};
+```
+
+The environment file should contain your sensitive API key:
+
+```env
+IMMICH_API_KEY=your_secret_api_key_here
+```
+
+## Advanced Configuration
+
+All settings can be configured via environment variables:
+
+| Variable                        | Description                               | Default                                                          |
+| ------------------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
+| **Required**                    |
+| `IMMICH_API_URL`                | Your Immich server API endpoint           | -                                                                |
+| `IMMICH_API_KEY`                | API key from Immich user settings         | -                                                                |
+| `WATCH_DIRECTORIES`             | Comma-separated directories to monitor    | -                                                                |
+| `ARCHIVE_DIRECTORY`             | Where to move uploaded files              | -                                                                |
+| **Optional**                    |
+| `WATCH_RECURSIVE`               | Monitor subdirectories (true/false)       | `true`                                                           |
+| **File Handling**               |
+| `SUPPORTED_EXTENSIONS`          | File types to process                     | `jpg,jpeg,png,gif,bmp,tiff,webp,mp4,mov,avi,mkv,wmv,flv,m4v,3gp` |
+| `MAX_FILE_SIZE_MB`              | Maximum file size to process              | `1000`                                                           |
+| `FILE_STABILITY_WAIT_SECONDS`   | Wait time for file size to stabilize      | `5`                                                              |
+| `FILE_STABILITY_CHECK_INTERVAL` | Seconds between stability checks          | `1.0`                                                            |
+| **System**                      |
+| `LOG_LEVEL`                     | Logging detail (DEBUG/INFO/WARNING/ERROR) | `INFO`                                                           |
+
+### Example: High-Volume Setup
+
+```env
+# For processing lots of large video files
+MAX_FILE_SIZE_MB=5000
+FILE_STABILITY_WAIT_SECONDS=30
+SUPPORTED_EXTENSIONS=mp4,mov,avi,mkv,m4v
+LOG_LEVEL=DEBUG
+```
+
+### Example: Minimal Photo Setup
+
+```env
+# Only photos, smaller files
+SUPPORTED_EXTENSIONS=jpg,jpeg,png,heic
+MAX_FILE_SIZE_MB=50
+FILE_STABILITY_WAIT_SECONDS=2
+WATCH_RECURSIVE=false
 ```
 
 ## Troubleshooting
 
-### Common Issues
+### Debug Mode
 
-1. **API Key Invalid**: Ensure your API key is correctly set and has the necessary permissions
-2. **Network Errors**: Check that your Immich server is accessible from the machine running the uploader
-3. **Permission Errors**: Ensure the application has read access to watch directories and write access to the archive directory
-4. **File Not Uploading**: Check file size limits and supported extensions
+Set `LOG_LEVEL=DEBUG` in your `.env` file for detailed logging:
 
-### Debugging
+```bash
+LOG_LEVEL=DEBUG python src/main.py
+```
 
-Set `LOG_LEVEL=DEBUG` in your `.env` file for detailed logging information.
+This will show:
 
-## Development Notes
+- Every file system event detected
+- File stability checking progress
+- API request/response details
+- Archive operations
 
-This project uses:
-- **Python 3.11+**: Modern Python with type hints and comprehensive error handling
-- **Devbox**: For reproducible development environments with automatic virtual environment management
-- **Watchdog**: Cross-platform file system monitoring library
-- **Requests**: HTTP library with built-in retry logic for reliable API communication
+## Development
 
-For development contributions, ensure you have devbox installed and use `devbox shell` to enter the development environment with all dependencies automatically installed.
+### Running Tests
+
+```bash
+# With Poetry
+poetry run pytest
+poetry run pytest --cov=src --cov-report=html
+
+# With devbox
+devbox run test
+devbox run test-coverage
+
+# With Python directly
+pip install pytest pytest-cov
+pytest
+pytest --cov=src --cov-report=html
+```
+
+### Development Environment
+
+The project uses devbox for reproducible development with automatic virtual environment management. Python 3.11+ with type hints and comprehensive error handling.
+
+**Key Dependencies:**
+
+- `requests` - HTTP client with retry logic
+- `watchdog` - Cross-platform file system monitoring
+- `python-dotenv` - Environment variable loading
+- `notify-py` - Desktop notifications (optional)
