@@ -1,8 +1,9 @@
 import os
 import logging
 import time
+import hashlib
 from pathlib import Path
-from typing import List, Callable, Set
+from typing import List, Callable, Set, Optional
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileCreatedEvent, FileModifiedEvent
 
@@ -110,7 +111,7 @@ class ImmichFileHandler(FileSystemEventHandler):
             self.processing_files.discard(file_path)
 
     def _wait_for_file_stability(self, file_path: str) -> bool:
-        """Wait for file to become stable (size stops changing)"""
+        """Wait for file to become stable (size and content hash stop changing)"""
         path = Path(file_path)
         
         if not path.exists():
@@ -120,6 +121,7 @@ class ImmichFileHandler(FileSystemEventHandler):
         try:
             # Get initial file size
             last_size = path.stat().st_size
+            last_hash = self._get_file_hash(path, last_size)
             logger.debug(f"Starting stability check for {file_path} (initial size: {last_size} bytes)")
             
             stable_start_time = None
@@ -141,26 +143,75 @@ class ImmichFileHandler(FileSystemEventHandler):
                     logger.debug(f"Could not get file size during stability check: {file_path}")
                     return False
                 
-                # Check if size has changed
-                if current_size != last_size:
-                    logger.debug(f"File size changed: {file_path} ({last_size} -> {current_size} bytes)")
+                # For large files, also check content hash
+                content_changed = False
+                current_hash = last_hash
+                
+                if current_size > 10 * 1024 * 1024:  # For files > 10MB, check hash
+                    current_hash = self._get_file_hash(path, current_size)
+                    if current_hash != last_hash:
+                        content_changed = True
+                        logger.debug(f"File content changed (hash mismatch): {file_path}")
+                
+                # Check if size or content has changed
+                if current_size != last_size or content_changed:
+                    logger.debug(f"File changed: {file_path} (size: {last_size} -> {current_size} bytes)")
                     last_size = current_size
+                    last_hash = current_hash
                     stable_start_time = None  # Reset stability timer
                 else:
-                    # Size hasn't changed
+                    # Size and content haven't changed
                     if stable_start_time is None:
                         stable_start_time = time.time()
-                        logger.debug(f"File size stable, starting stability timer: {file_path} ({current_size} bytes)")
+                        logger.debug(f"File stable, starting stability timer: {file_path} ({current_size} bytes)")
+                    
+                    # Calculate required stability duration based on file size
+                    required_stability = self._calculate_required_stability(current_size)
                     
                     # Check if file has been stable long enough
                     stable_duration = time.time() - stable_start_time
-                    if stable_duration >= self.config.file_stability_wait_seconds:
-                        logger.debug(f"File is stable for {stable_duration:.1f}s: {file_path} ({current_size} bytes)")
+                    if stable_duration >= required_stability:
+                        logger.info(f"File is stable for {stable_duration:.1f}s (required: {required_stability}s): {file_path} ({current_size} bytes)")
                         return True
         
         except Exception as e:
             logger.error(f"Error during file stability check for {file_path}: {e}")
             return False
+    
+    def _get_file_hash(self, path: Path, file_size: int) -> Optional[str]:
+        """Get hash of file's beginning and end for stability check"""
+        try:
+            # For very large files, only hash first and last chunks
+            chunk_size = min(1024 * 1024, file_size // 4)  # 1MB or 25% of file
+            
+            hasher = hashlib.md5()
+            with open(path, 'rb') as f:
+                # Hash beginning
+                hasher.update(f.read(chunk_size))
+                
+                # Hash end if file is large enough
+                if file_size > chunk_size * 2:
+                    f.seek(-chunk_size, os.SEEK_END)
+                    hasher.update(f.read(chunk_size))
+                    
+            return hasher.hexdigest()
+        except Exception as e:
+            logger.debug(f"Could not calculate file hash: {e}")
+            return None
+    
+    def _calculate_required_stability(self, file_size: int) -> float:
+        """Calculate required stability duration based on file size"""
+        size_mb = file_size / (1024 * 1024)
+        
+        # Base wait time from config
+        base_wait = self.config.file_stability_wait_seconds
+        
+        # Check if file is large enough to require extended wait
+        if size_mb >= self.config.min_stability_wait_size_mb:
+            # Use video-specific wait time for large files
+            return self.config.file_stability_wait_seconds_video
+        else:
+            return base_wait  # Use default for smaller files
 
 
 class FileWatcher:

@@ -231,3 +231,58 @@ class TestConfigValidation:
             assert 'test_' in config_str  # First 5 chars
             assert '*' in config_str      # Masked part
             assert 'test_api_key_12345' not in config_str  # Full key should not appear
+    
+    def test_video_specific_config_values(self, mock_env, test_directories):
+        """Test video-specific configuration values"""
+        env_vars = {
+            **mock_env,
+            'WATCH_DIRECTORIES': str(test_directories['watch1']),
+            'ARCHIVE_DIRECTORY': str(test_directories['archive']),
+            'FILE_STABILITY_WAIT_SECONDS_VIDEO': '45',
+            'MIN_STABILITY_WAIT_SIZE_MB': '200',
+            'VERIFY_VIDEO_INTEGRITY': 'true'
+        }
+        
+        with patch.dict(os.environ, env_vars):
+            config = Config()
+            assert config.file_stability_wait_seconds_video == 45
+            assert config.min_stability_wait_size_mb == 200
+            assert config.verify_video_integrity is True
+    
+    def test_verify_video_integrity_parsing(self, mock_env, test_directories):
+        """Test parsing of VERIFY_VIDEO_INTEGRITY environment variable"""
+        base_env = {
+            **mock_env,
+            'WATCH_DIRECTORIES': str(test_directories['watch1']),
+            'ARCHIVE_DIRECTORY': str(test_directories['archive'])
+        }
+        
+        # Test true values
+        for true_value in ['true', 'True', '1', 'yes', 'YES', 'on']:
+            with patch.dict(os.environ, {**base_env, 'VERIFY_VIDEO_INTEGRITY': true_value}):
+                config = Config()
+                assert config.verify_video_integrity is True
+        
+        # Test false values
+        for false_value in ['false', 'False', '0', 'no', 'NO', 'off']:
+            with patch.dict(os.environ, {**base_env, 'VERIFY_VIDEO_INTEGRITY': false_value}):
+                config = Config()
+                assert config.verify_video_integrity is False
+    
+    def test_invalid_video_config_values(self, mock_env, test_directories):
+        """Test invalid video-specific configuration values"""
+        base_env = {
+            **mock_env,
+            'WATCH_DIRECTORIES': str(test_directories['watch1']),
+            'ARCHIVE_DIRECTORY': str(test_directories['archive'])
+        }
+        
+        # Test invalid video wait seconds (less than base wait)
+        with patch('config.load_dotenv'), patch.dict(os.environ, {**base_env, 'FILE_STABILITY_WAIT_SECONDS': '10', 'FILE_STABILITY_WAIT_SECONDS_VIDEO': '5'}):
+            with pytest.raises(ValueError, match="FILE_STABILITY_WAIT_SECONDS_VIDEO must be at least FILE_STABILITY_WAIT_SECONDS"):
+                Config()
+        
+        # Test invalid min stability wait size
+        with patch('config.load_dotenv'), patch.dict(os.environ, {**base_env, 'MIN_STABILITY_WAIT_SIZE_MB': '-1'}):
+            with pytest.raises(ValueError, match="MIN_STABILITY_WAIT_SIZE_MB must be non-negative"):
+                Config()

@@ -89,7 +89,10 @@ class TestImmichFileHandler:
             'WATCH_DIRECTORIES': str(test_directories['watch1']),
             'ARCHIVE_DIRECTORY': str(test_directories['archive']),
             'FILE_STABILITY_WAIT_SECONDS': '1',
-            'FILE_STABILITY_CHECK_INTERVAL': '0.1'
+            'FILE_STABILITY_CHECK_INTERVAL': '0.1',
+            'FILE_STABILITY_WAIT_SECONDS_VIDEO': '30',
+            'MIN_STABILITY_WAIT_SIZE_MB': '100',
+            'VERIFY_VIDEO_INTEGRITY': 'true'
         }
         
         with patch.dict(os.environ, env_vars):
@@ -381,3 +384,74 @@ class TestFileWatcher:
                 call_args_list = [call.args[0] for call in callback.call_args_list]
                 file_names = [file_info.name for file_info in call_args_list]
                 assert 'sub_image.jpg' not in file_names
+    
+    def test_file_hash_calculation(self, mock_config, test_directories):
+        """Test file hash calculation for stability checking"""
+        callback = MagicMock()
+        handler = ImmichFileHandler(mock_config, callback)
+        
+        # Create a test file with known content
+        test_file = test_directories['watch1'] / 'hash_test.dat'
+        test_content = b'A' * 2048 * 1024  # 2MB of 'A'
+        test_file.write_bytes(test_content)
+        
+        # Calculate hash
+        hash1 = handler._get_file_hash(test_file, len(test_content))
+        assert hash1 is not None
+        
+        # Hash should be consistent
+        hash2 = handler._get_file_hash(test_file, len(test_content))
+        assert hash1 == hash2
+        
+        # Modify file content
+        test_file.write_bytes(b'B' * 2048 * 1024)  # Change content
+        hash3 = handler._get_file_hash(test_file, 2048 * 1024)
+        assert hash3 != hash1  # Hash should change
+    
+    def test_calculate_required_stability(self, mock_config, test_directories):
+        """Test dynamic stability duration calculation"""
+        callback = MagicMock()
+        handler = ImmichFileHandler(mock_config, callback)
+        
+        # Test small file (< min size threshold)
+        small_duration = handler._calculate_required_stability(10 * 1024 * 1024)  # 10MB
+        assert small_duration == mock_config.file_stability_wait_seconds
+        
+        # Test large file (>= min size threshold)
+        # Assuming min_stability_wait_size_mb = 100 (from mock_config)
+        large_duration = handler._calculate_required_stability(200 * 1024 * 1024)  # 200MB
+        assert large_duration == mock_config.file_stability_wait_seconds_video
+        
+        # Test exactly at threshold
+        threshold_duration = handler._calculate_required_stability(100 * 1024 * 1024)  # 100MB
+        assert threshold_duration == mock_config.file_stability_wait_seconds_video
+    
+    @patch('time.sleep')
+    def test_file_stability_with_hash_check(self, mock_sleep, mock_config, test_directories):
+        """Test file stability with content hash verification"""
+        callback = MagicMock()
+        handler = ImmichFileHandler(mock_config, callback)
+        
+        # Create a large file (> 10MB to trigger hash checking)
+        temp_file = test_directories['watch1'] / 'large_video.mp4'
+        initial_content = b'X' * 15 * 1024 * 1024  # 15MB
+        temp_file.write_bytes(initial_content)
+        
+        call_count = 0
+        def mock_sleep_and_change_content(duration):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:  # Change content on second check
+                # Append data to simulate ongoing download
+                with open(temp_file, 'ab') as f:
+                    f.write(b'Y' * 1024 * 1024)  # Add 1MB
+        
+        mock_sleep.side_effect = mock_sleep_and_change_content
+        
+        # Mock the required stability to be short for testing
+        with patch.object(handler, '_calculate_required_stability', return_value=3):
+            result = handler._wait_for_file_stability(str(temp_file))
+        
+        assert result is True
+        # Should have detected content change and reset stability timer
+        assert mock_sleep.call_count > 3  # More calls due to content change

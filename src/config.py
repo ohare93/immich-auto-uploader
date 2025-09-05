@@ -41,6 +41,9 @@ class Config:
         self.max_file_size_mb = int(self._get_env("MAX_FILE_SIZE_MB", "1000"))
         self.file_stability_wait_seconds = int(self._get_env("FILE_STABILITY_WAIT_SECONDS", "5"))
         self.file_stability_check_interval = float(self._get_env("FILE_STABILITY_CHECK_INTERVAL", "1.0"))
+        self.file_stability_wait_seconds_video = int(self._get_env("FILE_STABILITY_WAIT_SECONDS_VIDEO", "30"))
+        self.min_stability_wait_size_mb = int(self._get_env("MIN_STABILITY_WAIT_SIZE_MB", "100"))
+        self.verify_video_integrity = self._get_env("VERIFY_VIDEO_INTEGRITY", "true").lower() in ("true", "1", "yes", "on")
         self.watch_recursive = self._get_env("WATCH_RECURSIVE", "true").lower() in ("true", "1", "yes", "on")
         
         # Notification settings
@@ -95,6 +98,12 @@ class Config:
 
         if self.file_stability_check_interval < 0.1:
             raise ValueError("FILE_STABILITY_CHECK_INTERVAL must be at least 0.1")
+        
+        if self.file_stability_wait_seconds_video < self.file_stability_wait_seconds:
+            raise ValueError("FILE_STABILITY_WAIT_SECONDS_VIDEO must be at least FILE_STABILITY_WAIT_SECONDS")
+        
+        if self.min_stability_wait_size_mb < 0:
+            raise ValueError("MIN_STABILITY_WAIT_SIZE_MB must be non-negative")
 
         if self.notification_batch_size < 1:
             raise ValueError("NOTIFICATION_BATCH_SIZE must be at least 1")
@@ -163,6 +172,9 @@ class Config:
   Max file size: {self.max_file_size_mb} MB
   File stability wait: {self.file_stability_wait_seconds} seconds
   File stability check interval: {self.file_stability_check_interval} seconds
+  File stability wait for videos: {self.file_stability_wait_seconds_video} seconds
+  Min size for extended stability: {self.min_stability_wait_size_mb} MB
+  Verify video integrity: {self.verify_video_integrity}
   Watch recursive: {self.watch_recursive}
   Notifications enabled: {self.enable_notifications}
   Notification batch size: {self.notification_batch_size}

@@ -40,7 +40,8 @@ class TestImmichClient:
         env_vars = {
             **mock_env,
             'WATCH_DIRECTORIES': str(test_directories['watch1']),
-            'ARCHIVE_DIRECTORY': str(test_directories['archive'])
+            'ARCHIVE_DIRECTORY': str(test_directories['archive']),
+            'VERIFY_VIDEO_INTEGRITY': 'false'  # Default to false for most tests
         }
         
         with patch.dict(os.environ, env_vars):
@@ -267,6 +268,103 @@ class TestImmichClient:
         # Device ID should be the same for all clients
         assert client1.device_id == client2.device_id
         assert client1.device_id == "immich-auto-uploader"
+    
+    def test_is_video_file(self, mock_config):
+        """Test video file detection by extension"""
+        client = ImmichClient(mock_config)
+        
+        # Video extensions
+        for ext in ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'm4v', '3gp']:
+            assert client._is_video_file(ext) is True
+            assert client._is_video_file(ext.upper()) is True
+        
+        # Non-video extensions
+        for ext in ['jpg', 'png', 'gif', 'txt', 'pdf']:
+            assert client._is_video_file(ext) is False
+    
+    def test_validate_video_file_with_valid_mp4(self, mock_config, test_directories):
+        """Test video validation with a valid MP4 file"""
+        client = ImmichClient(mock_config)
+        
+        # Create a minimal valid MP4 file
+        mp4_file = test_directories['watch1'] / 'test_video.mp4'
+        # MP4 header: ftyp box with 'mp42' brand
+        mp4_header = b'\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41'
+        # Add a simple moov atom
+        moov_atom = b'\x00\x00\x00\x08moov'
+        mp4_file.write_bytes(mp4_header + moov_atom + b'\x00' * 1000)
+        
+        is_valid, msg = client._validate_video_file(mp4_file)
+        assert is_valid is True
+        assert 'Valid MP4' in msg
+    
+    def test_validate_video_file_with_incomplete_mp4(self, mock_config, test_directories):
+        """Test video validation with incomplete MP4 (missing moov atom)"""
+        client = ImmichClient(mock_config)
+        
+        # Create an MP4 without moov atom (incomplete download)
+        mp4_file = test_directories['watch1'] / 'incomplete_video.mp4'
+        # MP4 header without moov
+        mp4_header = b'\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41'
+        mp4_file.write_bytes(mp4_header + b'\x00' * 1000)
+        
+        is_valid, msg = client._validate_video_file(mp4_file)
+        assert is_valid is False
+        assert 'Missing moov atom' in msg
+    
+    def test_validate_video_file_too_small(self, mock_config, test_directories):
+        """Test video validation with file too small"""
+        client = ImmichClient(mock_config)
+        
+        # Create a very small file
+        small_file = test_directories['watch1'] / 'tiny_video.mp4'
+        small_file.write_bytes(b'tiny')
+        
+        is_valid, msg = client._validate_video_file(small_file)
+        assert is_valid is False
+        assert 'too small' in msg
+    
+    @patch('requests.Session.post')
+    def test_upload_with_video_integrity_check_enabled(self, mock_post, mock_config, test_directories):
+        """Test upload with video integrity checking enabled"""
+        mock_config.verify_video_integrity = True
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {'id': 'test-asset-123'}
+        mock_post.return_value = mock_response
+        
+        client = ImmichClient(mock_config)
+        
+        # Create a valid MP4 for testing
+        mp4_file = test_directories['watch1'] / 'good_video.mp4'
+        mp4_header = b'\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41'
+        moov_atom = b'\x00\x00\x00\x08moov'
+        mp4_file.write_bytes(mp4_header + moov_atom + b'\x00' * 10000)
+        
+        file_info = FileInfo(str(mp4_file))
+        result = client.upload_asset(file_info)
+        
+        assert result.success is True
+        assert mock_post.called
+    
+    @patch('requests.Session.post')
+    def test_upload_with_video_integrity_check_fails(self, mock_post, mock_config, test_directories):
+        """Test upload fails when video integrity check fails"""
+        mock_config.verify_video_integrity = True
+        
+        client = ImmichClient(mock_config)
+        
+        # Create an incomplete MP4
+        mp4_file = test_directories['watch1'] / 'bad_video.mp4'
+        mp4_header = b'\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2mp41'
+        mp4_file.write_bytes(mp4_header + b'\x00' * 100)  # No moov atom
+        
+        file_info = FileInfo(str(mp4_file))
+        result = client.upload_asset(file_info)
+        
+        assert result.success is False
+        assert 'integrity check failed' in result.message
+        assert not mock_post.called  # Should not attempt upload
     
     def test_unique_device_asset_ids(self, mock_config, test_directories):
         """Test that device asset IDs are unique for different files"""

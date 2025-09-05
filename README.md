@@ -123,15 +123,21 @@ All settings can be configured via environment variables:
 | `MAX_FILE_SIZE_MB`              | Maximum file size to process              | `1000`                                                           |
 | `FILE_STABILITY_WAIT_SECONDS`   | Wait time for file size to stabilize      | `5`                                                              |
 | `FILE_STABILITY_CHECK_INTERVAL` | Seconds between stability checks          | `1.0`                                                            |
+| `FILE_STABILITY_WAIT_SECONDS_VIDEO` | Extended wait time for video files    | `30`                                                             |
+| `MIN_STABILITY_WAIT_SIZE_MB`    | File size threshold for extended wait     | `100`                                                            |
+| `VERIFY_VIDEO_INTEGRITY`        | Check video file headers before upload    | `true`                                                           |
 | **System**                      |
 | `LOG_LEVEL`                     | Logging detail (DEBUG/INFO/WARNING/ERROR) | `INFO`                                                           |
 
-### Example: High-Volume Setup
+### Example: High-Volume Video Setup
 
 ```env
 # For processing lots of large video files
 MAX_FILE_SIZE_MB=5000
-FILE_STABILITY_WAIT_SECONDS=30
+FILE_STABILITY_WAIT_SECONDS=10
+FILE_STABILITY_WAIT_SECONDS_VIDEO=60  # Wait 1 minute for video stability
+MIN_STABILITY_WAIT_SIZE_MB=100       # Apply extended wait to files >100MB
+VERIFY_VIDEO_INTEGRITY=true          # Check video files for corruption
 SUPPORTED_EXTENSIONS=mp4,mov,avi,mkv,m4v
 LOG_LEVEL=DEBUG
 ```
@@ -162,6 +168,25 @@ This will show:
 - File stability checking progress
 - API request/response details
 - Archive operations
+
+### Corrupted Video Files
+
+If uploaded videos are corrupted but the archived copies work fine, the file was likely still downloading when uploaded. To fix:
+
+```env
+# Increase stability wait time for videos
+FILE_STABILITY_WAIT_SECONDS_VIDEO=60   # Wait 1 minute
+MIN_STABILITY_WAIT_SIZE_MB=50          # For files >50MB
+
+# Enable integrity checking
+VERIFY_VIDEO_INTEGRITY=true
+```
+
+The uploader now:
+- Uses content hash verification to detect file changes
+- Applies longer wait times for large files automatically  
+- Validates video file structure before upload
+- Checks for incomplete downloads (missing moov atoms in MP4s)
 
 ## Development
 

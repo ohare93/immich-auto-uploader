@@ -1,7 +1,7 @@
 import os
 import logging
 import hashlib
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from pathlib import Path
 import requests
 from requests.adapters import HTTPAdapter
@@ -63,6 +63,13 @@ class ImmichClient:
             # Validate file before upload
             if not file_info.is_valid(self.config):
                 return ImmichUploadResult(False, "File is not valid for upload")
+            
+            # For video files, perform integrity check if enabled
+            if self.config.verify_video_integrity and self._is_video_file(file_info.extension):
+                is_valid, error_msg = self._validate_video_file(file_info.path)
+                if not is_valid:
+                    logger.error(f"Video integrity check failed for {file_info.name}: {error_msg}")
+                    return ImmichUploadResult(False, f"Video integrity check failed: {error_msg}")
             
             # Generate device asset ID
             device_asset_id = self._generate_device_asset_id(file_info)
@@ -193,6 +200,97 @@ class ImmichClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to connect to Immich server: {e}")
             return False
+    
+    def _is_video_file(self, extension: str) -> bool:
+        """Check if file extension indicates a video file"""
+        video_extensions = ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'm4v', '3gp']
+        return extension.lower() in video_extensions
+    
+    def _validate_video_file(self, file_path: Path) -> Tuple[bool, str]:
+        """Validate video file integrity by checking headers and structure"""
+        try:
+            # Check minimum file size (videos should be at least a few KB)
+            file_size = file_path.stat().st_size
+            if file_size < 1024:  # Less than 1KB
+                return False, "File too small to be a valid video"
+            
+            # Check file headers for common video formats
+            with open(file_path, 'rb') as f:
+                header = f.read(12)
+                
+                if len(header) < 12:
+                    return False, "File too small to read header"
+                
+                # Check for common video file signatures
+                if self._check_mp4_header(header):
+                    # Additional MP4 validation
+                    return self._validate_mp4_file(f, file_size)
+                elif self._check_avi_header(header):
+                    return True, "Valid AVI file"
+                elif self._check_mkv_header(header):
+                    return True, "Valid MKV file"
+                elif header[4:12] == b'ftypqt  ':  # MOV
+                    return True, "Valid MOV file"
+                else:
+                    # For other formats, just check if we can read the entire file
+                    try:
+                        f.seek(0)
+                        chunk_size = 1024 * 1024  # 1MB chunks
+                        while f.read(chunk_size):
+                            pass
+                        return True, "File readable"
+                    except Exception:
+                        return False, "Cannot read entire file"
+                        
+        except FileNotFoundError:
+            return False, "File not found"
+        except PermissionError:
+            return False, "Permission denied"
+        except Exception as e:
+            return False, f"Validation error: {str(e)}"
+    
+    def _check_mp4_header(self, header: bytes) -> bool:
+        """Check if file has MP4 header"""
+        # MP4 files have 'ftyp' at bytes 4-7
+        return len(header) >= 8 and header[4:8] == b'ftyp'
+    
+    def _check_avi_header(self, header: bytes) -> bool:
+        """Check if file has AVI header"""
+        # AVI files start with 'RIFF' and have 'AVI ' at bytes 8-12
+        return len(header) >= 12 and header[:4] == b'RIFF' and header[8:12] == b'AVI '
+    
+    def _check_mkv_header(self, header: bytes) -> bool:
+        """Check if file has MKV/WebM header"""
+        # MKV files start with EBML header (0x1A45DFA3)
+        return len(header) >= 4 and header[:4] == b'\x1a\x45\xdf\xa3'
+    
+    def _validate_mp4_file(self, f, file_size: int) -> Tuple[bool, str]:
+        """Perform additional validation for MP4 files"""
+        try:
+            # Check if file has proper MP4 structure
+            # MP4 files should have 'moov' atom (movie header)
+            f.seek(0)
+            
+            # For small files, read everything
+            if file_size < 1024 * 1024:
+                data = f.read()
+                if b'moov' not in data:
+                    return False, "Missing moov atom - file may be incomplete"
+            else:
+                # For large files, check beginning and end
+                data = f.read(1024 * 1024)  # Read first 1MB
+                
+                if b'moov' not in data:
+                    # Check end of file for moov atom (some MP4s have it at the end)
+                    f.seek(-min(file_size, 1024 * 1024), os.SEEK_END)
+                    data = f.read()
+                    if b'moov' not in data:
+                        return False, "Missing moov atom - file may be incomplete"
+            
+            return True, "Valid MP4 file"
+            
+        except Exception as e:
+            return False, f"MP4 validation error: {str(e)}"
     
     def close(self):
         """Close the session"""
